@@ -1,0 +1,156 @@
+extern void interruptSetup(void);
+
+extern int pulsePin;
+extern int blinkPin;
+extern volatile int BPM;;
+extern volatile int Signal;;
+extern volatile int IBI;
+extern volatile boolean Pulse;
+extern volatile boolean QS;
+int myBPM;
+
+// Regards Serial OutPut  -- Set This Up to your needs
+static boolean serialVisual = true;   // Set to 'false' by Default.  Re-set to 'true' to see Arduino Serial Monitor ASCII Visual Pulse 
+
+
+extern int fadePin;
+extern int fadeRate;
+
+void setup(){
+    Particle.function("showBPM",showBPM);
+    Particle.variable("bpm", &myBPM, INT);
+	pinMode(blinkPin,OUTPUT);         // pin that will blink to your heartbeat!
+	pinMode(fadePin,OUTPUT);          // pin that will fade to your heartbeat!
+	Serial.begin(115200);             // we agree to talk fast!
+	interruptSetup();                 // sets up to read Pulse Sensor signal every 2mS 
+	
+}
+
+int showBPM(String command) {
+    int myBPM = BPM;
+    return myBPM;
+}
+
+
+
+//  Where the Magic Happens
+void loop(){
+
+	serialOutput() ;       
+	
+	if (QS == true){     //  A Heartbeat Was Found
+		// BPM and IBI have been Determined
+		// Quantified Self "QS" true when arduino finds a heartbeat
+		digitalWrite(blinkPin,HIGH);     // Blink LED, we got a beat. 
+		fadeRate = 255;         // Makes the LED Fade Effect Happen
+		// Set 'fadeRate' Variable to 255 to fade LED with pulse
+		serialOutputWhenBeatHappens();   // A Beat Happened, Output that to serial.     
+		QS = false;                      // reset the Quantified Self flag for next time    
+	} 
+	else { 
+
+		digitalWrite(blinkPin,LOW);            // There is not beat, turn off pin 13 LED
+	}
+	
+	ledFadeToBeat();                      // Makes the LED Fade Effect Happen 
+	delay(20);                             //  take a break
+}
+
+//////////
+/////////  All Serial Handling Code, 
+/////////  It's Changeable with the 'serialVisual' variable
+/////////  Set it to 'true' or 'false' when it's declared at start of code.  
+/////////
+
+void serialOutput(){   // Decide How To Output Serial. 
+	if (serialVisual == true){  
+		arduinoSerialMonitorVisual('-', Signal);   // goes to function that makes Serial Monitor Visualizer
+	} else{
+		sendDataToSerial('S', Signal);     // goes to sendDataToSerial function
+	}        
+}
+
+
+//  Decides How To OutPut BPM and IBI Data
+void serialOutputWhenBeatHappens(){    
+	if (serialVisual == true){            //  Code to Make the Serial Monitor Visualizer Work
+		Serial.print("*** Heart-Beat Happened *** ");  //ASCII Art Madness
+		Serial.print("BPM: ");
+		Serial.print(BPM);
+		myBPM = BPM;
+		Serial.print("  ");
+	} else{
+		sendDataToSerial('B',BPM);   // send heart rate with a 'B' prefix
+		sendDataToSerial('Q',IBI);   // send time between beats with a 'Q' prefix
+	}   
+}
+
+
+
+//  Sends Data to Pulse Sensor Processing App, Native Mac App, or Third-party Serial Readers. 
+void sendDataToSerial(char symbol, int data ){
+	Serial.print(symbol);
+
+	Serial.println(data);                
+}
+
+
+void ledFadeToBeat(){
+	fadeRate -= 15;                         //  set LED fade value
+	fadeRate = constrain(fadeRate,0,255);   //  keep LED fade value from going into negative numbers!
+	analogWrite(fadePin,fadeRate);          //  fade LED
+}
+
+
+//  Code to Make the Serial Monitor Visualizer Work
+void arduinoSerialMonitorVisual(char symbol, int data ){    
+	const int sensorMin = 0;      // sensor minimum, discovered through experiment
+	const int sensorMax = 1024;    // sensor maximum, discovered through experiment
+
+	int sensorReading = data;
+	// map the sensor range to a range of 12 options:
+	int range = map(sensorReading, sensorMin, sensorMax, 0, 11);
+
+	// do something different depending on the 
+	// range value:
+	switch (range) {
+	case 0:     
+		Serial.println("");     /////ASCII Art Madness
+		break;
+	case 1:   
+		Serial.println("---");
+		break;
+	case 2:    
+		Serial.println("------");
+		break;
+	case 3:    
+		Serial.println("---------");
+		break;
+	case 4:   
+		Serial.println("------------");
+		break;
+	case 5:   
+		Serial.println("--------------|-");
+		break;
+	case 6:   
+		Serial.println("--------------|---");
+		break;
+	case 7:   
+		Serial.println("--------------|-------");
+		break;
+	case 8:  
+		Serial.println("--------------|----------");
+		break;
+	case 9:    
+		Serial.println("--------------|----------------");
+		break;
+	case 10:   
+		Serial.println("--------------|-------------------");
+		break;
+	case 11:   
+		Serial.println("--------------|-----------------------");
+		break;
+
+	} 
+}
+
